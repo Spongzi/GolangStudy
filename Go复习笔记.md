@@ -581,3 +581,195 @@ func main() {
 ```
 
 a[x:y:z] 切片内容 [x:y] 切片长度: y-x 切片容量:z-x
+
+### Slice底层实现
+
+切片常见的操作reslice，append，copy。与此同时，切片还具有可索引，可迭代的优秀特性
+
+#### 切片和数组
+
+在Go中，与C语言不同的是，C数组变量隐式作为指针使用不同，Go数组是指类型，赋值和函数传参操作都会复制整个数组数据
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	var arr1 = [2]int{1, 2}
+	var arr2 [2]int
+	arr2 = arr1
+	fmt.Printf("arr1: %p %v \n", &arr1, arr1)
+	fmt.Printf("arr2: %p %v \n", &arr2, arr2)
+}
+arr1: 0xc0000140b0 [1 2] 
+arr2: 0xc0000140c0 [1 2] 
+```
+
+可以看出在每次调用的时候都会产生不同的地址，也就是说Go中数组在赋值和传参的时候都是复制的。那么这样会损失大量的内存。于是我们可以通过传递数组的指针。
+
+把第一个大数组传递给函数会消耗很多内存，采用切片的方式传参可以避免上述问题。切片是引用传递，所以它们不需要使用额外的内存并且比使用数组更有效率，并非所有时候都适合用切片代替数组，因为切片底层数组可能会在堆上分配内存，而且小数组在栈上拷贝的消耗也未必比 make 消耗大。
+
+#### 切片的数据结构
+
+切片的本身是一种只读的对象，其工作机制类似数组指针的一种封装
+切片(slice)是对数组的一个连续片段的引用，所以切片是一个引用类型(更类似于C家族中的数组类型，Python的list)。这个片段可以使整个数组，或者是由起始和终止索引表示的一些项的子集。需要注意的是，终止索引标识的项不包括在切片内。切片提供一个指向数组的动态窗口。
+给定项的切片索引可能比相关数组的相同元素的索引小。和数组不同的是，切片的长度可以在运行时修改，最小为0最大为相关数组的长度：切片是一个长度可变的数组
+
+```go
+type slice struct {
+    array unsafe.Pointer
+    len int
+    cap int
+}
+```
+
+三个部分组成：
+Pointer是指向一个数组的指针，
+len代表当前切片的长度
+cap是当前切片的容量，cap总是大于等于len的
+
+![img](E:\笔记\Go\assets\slice-3.png)
+
+[详情链接](https://www.jianshu.com/p/030aba2bff41)
+
+
+
+### Go指针
+
+`&`取地址和`*`根据地址取值
+
+变量，指针地址，指针变量，取地址，取值的互相关系和特性如下：
+
+```
+1. 对变量进行取地址(&)操作，可以获得这个变量的指针变量。
+2. 指针变量的值是指针地址。
+3. 对指针变量进行取值(*)操作，可以获得指针变量指向的原来变量的值。
+```
+
+#### new和make的区别
+
+```
+1. 二者都是用来做内存分配的。
+2. make只用于slice、map以及channel的初始化，返回的还是这三个引用类型本身。
+3. 而new用于类型的内存分配，并且内存对应的值为类型零值，返回的是指向类型的指针。
+```
+
+#### 指针小练习
+
+程序定义一个int变量num的地址并打印
+将num的地址付给指针ptr，并通过ptr取修改num的值
+
+```go
+package main
+
+import "fmt"
+
+func ptr(num *int) {
+    *num = 100
+}
+func main() {
+    var num int
+    num = 10
+    fmt.Printf("num: %p\n", &num)
+    ptr(&num)
+    fmt.Println(num)
+}
+```
+
+### Map
+
+#### map的创建
+
+```go
+scoreMap := make(map[T]T, len, cap)
+scoreMap := map[T]T{....}
+```
+
+#### 判断map是否存在
+
+```go
+value, ok := map[key]
+func main() {
+    scoreMap := make(map[string]int)
+    scoreMap["张三"] := 90
+    scoreMap["小明"] := 100
+    // 如果key存在ok为true，v为对应的值：不存在ok为false，v为值类型的零值
+    v, ok := scoreMap["张三"]
+    if ok {
+        fmt.Println(v)
+    } else {
+        fmt.Println("查无此人")
+    }
+}
+```
+
+#### map的遍历
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	// map的遍历
+	scoreMap := map[string]int{
+		"张三": 100,
+		"王五": 110,
+	}
+	for k, v := range scoreMap {
+		fmt.Println("key:", k, "value", v)
+	}
+	for k := range scoreMap {
+		fmt.Println(k)
+	}
+}
+```
+
+#### 使用delete()函数删除键值对
+
+```go
+// delete(map, key)
+// map: 表示要删除键值对的map
+// key: 表示要删除键值对的键
+func main() {
+    scoreMap := make(map[string]int)
+    scoreMap["张三"] = 90
+    scoreMap["小明"] = 100
+    scoreMap["王五"] = 60
+    delete(scoreMap, "小明") // 将小明:100 这对键值对从scoreMap中删除
+    for k, v := range scoreMap{
+        fmt.Println(k, v)
+    }
+}
+```
+
+#### 按照一定的顺序遍历map
+
+```go
+func main() {
+    rand.Seed(time.now().UnixNano()) // 初始化随机数种子
+    var scoreMap = make(map[string]int, 200)
+    for i := 0; i < 100; i++ {
+        key := fmt.Sprintf("stu%02d", i) // 生成stu开头的字符串
+        value := rand.Intn(100) // 生成0~99的随机数
+        scoreMap[key] = value
+    }
+    // 提取出map中所有的key存入切片keys
+    var keys := make([]string, 200)
+    for k := range scoreMap {
+        keys = append(keys, k)
+    }
+    // 对切片进行排序
+    sort.Strings(keys)
+    // 按照排序后的keys遍历map
+    for _, key := range keys {
+        fmt.Println(key, scoreMap[key])
+    }
+}
+```
+
+[深入Go的Map使用和实现原理](https://cloud.tencent.com/developer/article/1468799)
+
+
+
