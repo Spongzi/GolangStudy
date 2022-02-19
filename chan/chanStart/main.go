@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -11,25 +12,37 @@ import (
 
 var (
 	myMap = make(map[int]int, 10)
+	// 声明一个全局的互斥锁
+	// lock 是一个全局的互斥锁
+	// sync 是包：synchronized 同步锁
+	// Mutex 是互斥锁
+	lock sync.Mutex
+	wg   sync.WaitGroup
 )
 
 func test(n int) {
 	res := 1
-	for i := 0; i < n; i++ {
+	for i := 1; i <= n; i++ {
 		res *= i
 	}
+	// 执行之前，加锁
+	lock.Lock()
 	myMap[n] = res
+	// 执行结束后要解锁
+	defer lock.Unlock()
 }
 
 func main() {
 	now := time.Now()
-	for i := 0; i < 200; i++ {
+	for i := 1; i < 20; i++ {
 		go test(i)
 	}
 	// 输出结果
+	lock.Lock()
 	for k, v := range myMap {
-		fmt.Printf("%v! = %v", k, v)
+		fmt.Printf("%v! = %v\n", k, v)
 	}
+	lock.Unlock()
 	end := time.Now()
 	fmt.Println("一共运行了", end.Sub(now))
 }

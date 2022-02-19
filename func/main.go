@@ -16,5 +16,4 @@ func main() {
 	// 此时tmp1和tmp2不是一个实体了
 	tmp2 := add(100)
 	fmt.Println(tmp2(1), tmp2(2))
-	fmt.Println(Fibonacci(1))
 }
